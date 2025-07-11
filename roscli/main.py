@@ -4,10 +4,8 @@ import os
 import rclpy
 from rclpy.node import Node
 import socket
-import tldextract
 import platform    # For getting the operating system name
 import subprocess  # For executing a shell command
-from geometry_msgs.msg import Twist
 import teleopapiROS2 as teleopapi
 
 
@@ -94,7 +92,7 @@ class RosConsole(cmd.Cmd):
         'Convert a series of zero or more numbers to an argument tuple'
         return tuple(map(float, arg.split()))
 
-if __name__ == '__main__':
+def main():
     rc = RosConsole()
     try:
         rc.cmdloop()
@@ -106,3 +104,6 @@ if __name__ == '__main__':
             rclpy.shutdown()
         except:
             pass
+
+
+if __name__ == '__main__':
