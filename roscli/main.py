@@ -3,14 +3,20 @@ import cmd, sys
 import os
 import rclpy
 from rclpy.node import Node
-import socket
 import platform    # For getting the operating system name
 import subprocess  # For executing a shell command
-import teleopapiROS2 as teleopapi
-
+import teleopapi  # Assuming teleopapi is a custom module for robot control
 
 class Handlers(Node):
+    """
+    ROS2 node for handling robot operations and network diagnostics.
+    Provides ping functionality and node management.
+    """
     def __init__(self):
+        """
+        Initialize the handlers node.
+        Sets up ROS2 node with rc_node name.
+        """
         super().__init__('rc_node')
         self.node_initialized = False
         self.cmd_vel = None
@@ -30,15 +36,27 @@ class Handlers(Node):
         return self.ping
      
 class RosConsole(cmd.Cmd):
+    """
+    Interactive command-line interface for robot control.
+    Provides movement commands and ROS2 integration.
+    """
     intro = 'Welcome to the ROS2 Console shell.   Type help or ? to list commands.'
     prompt = "> "
 
     def __init__(self):
+        """
+        Initialize the console interface.
+        Sets up ROS2 and creates handlers instance.
+        """
         super().__init__()
         rclpy.init()
         self.h = Handlers()
     
     def __del__(self):
+        """
+        Clean up ROS2 resources on object destruction.
+        Safely destroys node and shuts down ROS2.
+        """
         try:
             self.h.destroy_node()
             rclpy.shutdown()
@@ -46,12 +64,20 @@ class RosConsole(cmd.Cmd):
             pass
 
     def default(self, line):
+        """
+        Handle unrecognized commands by finding partial matches.
+        Allows abbreviated command names for convenience.
+        """
         cmd, arg, line = self.parseline(line)
         func = [getattr(self, n) for n in self.get_names() if n.startswith('do_' + cmd)]
         if func: # maybe check if exactly one or more elements, and tell the user
             func[0](arg)
     
     def do_quit(self, arg):
+        """
+        Exit the console application.
+        Properly cleans up ROS2 resources before exiting.
+        """
         'Exit from rc'
         print('Thank you for using rc')
         try:
@@ -62,6 +88,10 @@ class RosConsole(cmd.Cmd):
         return True
 
     def do_move(self, arg):
+        """
+        Move robot forward at specified speed for given duration.
+        Default: 0.1 m/s for 1 second if no arguments provided.
+        """
         'Move robot forward <speed> <seconds>'
         args = self.parse(arg)
         if len(args) == 0:
@@ -73,6 +103,10 @@ class RosConsole(cmd.Cmd):
         toap.move(*args)
 
     def do_turn(self, arg):
+        """
+        Turn robot at specified angular speed for given duration.
+        Default: 0.4 rad/s for 1 second if no arguments provided.
+        """
         'Turn robot forward <speed> <seconds>'
         args = self.parse(arg)
         if len(args) == 0:
@@ -84,15 +118,27 @@ class RosConsole(cmd.Cmd):
         toap.turn(*args)
 
     def do_stop(self, arg):
+        """
+        Stop the robot immediately.
+        Sends zero velocity command to halt all movement.
+        """
         'Stop the robot immediately!'
         toap = teleopapi.TeleopApi(False)
         toap.turn(0.0,1) # move at 0.1 m/s for 1 second.
 
-    def parse(self,arg):
+    def parse(self, arg):
+        """
+        Parse command arguments into floating point numbers.
+        Converts space-separated string into tuple of floats.
+        """
         'Convert a series of zero or more numbers to an argument tuple'
         return tuple(map(float, arg.split()))
 
 def main():
+    """
+    Main entry point for the ROS console application.
+    Handles keyboard interrupts and ensures proper cleanup.
+    """
     rc = RosConsole()
     try:
         rc.cmdloop()

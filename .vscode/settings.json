@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "~/mydev/ros_stubs"
+    ],
+    "python.autoComplete.extraPaths": [
+        "~/mydev/ros_stubs"
+    ]
+}
