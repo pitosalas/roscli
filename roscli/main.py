@@ -150,6 +150,3 @@ def main():
             rclpy.shutdown()
         except:
             pass
-
-
-if __name__ == '__main__':
