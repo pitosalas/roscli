@@ -9,26 +9,22 @@ class TeleopApi(Node):
     ROS2 teleoperation API for robot movement control.
     Provides safe velocity commands with automatic stopping.
     """
-    def __init__(self, start_node=True):
-        """
-        Initialize teleop API node and publisher.
-        Creates ROS2 node and cmd_vel publisher if start_node is True.
-        """
-        if start_node:
-            rclpy.init()
-            super().__init__('teleop_api')
-            self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 1)
-        else:
-            super().__init__('teleop_api')
-            self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 1)
-
-    def cmd_vel(self, linear, angular, seconds):
-        """
-        Send velocity commands to robot for specified duration.
-        Enforces safety limits and automatically stops robot after time expires.
-        """
-        if not (-0.2 < linear < 0.2 and -0.8 < angular < 0.8):
-            self.get_logger().warn(f"Speed out of bounds: linear={linear}, angular={angular}. Linear must be [-0.2, 0.2], angular must be [-0.8, 0.8]")
+    def __init__(self, speed=0.7, rotation=0.4):
+        """Initialize teleop API node and publisher."""
+        rclpy.init()
+        super().__init__('teleop_api')
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 1)
+        self.get_logger().info("TeleopApi node initialized")
+        self.linear_min = 0
+        self.linear_max = 0.5
+        self.angular_min = -0.8
+        self.angular_max = 0.8
+        self.speed = speed
+        self.rotation = rotation
+    
+    def cmd_vel_helper(self, linear, angular, seconds):
+        """Send velocity commands for specified duration with safety limits."""
+        if not self.check_limits(linear, angular):
             return
         twist = Twist()
         twist.linear.x = linear
@@ -48,23 +44,36 @@ class TeleopApi(Node):
         twist.angular.z = 0.0
         self.cmd_vel_pub.publish(twist)
 
+    def check_limits(self, linear, angular):
+        """Check if speeds are within safe limits."""
+        if not (-0.2 < linear < 0.2 and -0.8 < angular < 0.8):
+            self.get_logger().warn(f"Speed out of bounds: linear={linear}, angular={angular}. Linear must be [-0.2, 0.2], angular must be [-0.8, 0.8]")
+            return False
+        return True
 
-    def move(self, speed=0, seconds=0):
-        """
-        Move robot forward/backward at given speed for specified time.
-        Positive speed moves forward, negative moves backward.
-        """
-        self.cmd_vel(speed, 0, seconds)
+    def move_dist(self, distance):
+        """Move robot forward a specified distance."""
+        seconds = distance / self.speed
+        self.cmd_vel_helper(self.speed, 0, seconds)
 
-    def turn(self, speed=0, seconds=0):
-        """
-        Rotate robot at given angular speed for specified time.
-        Positive speed turns left, negative turns right.
-        """
-        self.cmd_vel(0, speed, seconds)
+    def stop(self):
+        """Stop the robot immediately."""
+        self.cmd_vel_helper(0, 0, 0)
+
+    def turn_rad(self, speed=0.4, seconds=1):
+        """Turn robot at a specified speed for a given duration."""
+        if not self.check_limits(0, speed):
+            return
+        self.cmd_vel_helper(0, speed, seconds)
+
+    
+    def destroy_node(self):
+        """Clean up resources and shutdown node."""
+        self.get_logger().info("Shutting down TeleopApi node")
+        super().destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
-    toap = TeleopApi(True)
-    toap.turn(0.2, 1)  # turn at 0.2 rad/s for 1 second
+    toap = TeleopApi()
     toap.destroy_node()
     rclpy.shutdown()

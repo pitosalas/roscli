@@ -5,6 +5,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 This is a Python-based ROS (Robot Operating System) CLI toolkit for controlling robots. The project provides multiple command-line interfaces for robot control, teleoperation, and monitoring.
 
+## CLI commands
+turn_deg <degrees float>
+move_dist <meters float>
+move_time <seconds flaot>
+turn_time <second float>
+stop
+info
+speed <meters/second float>
+rotation <radians/second float>
+
+
 ## Key Components
 
 ### Core Architecture
@@ -43,3 +54,11 @@ The codebase uses a command table pattern where commands are defined with:
 - Mix of command-line interfaces and ROS node implementations
 - Parser supports variables, JSON values, and command chaining
 - Safety constraints applied to robot velocities in `safe_publish_cmd_vel()`
+
+## Coding Style
+- Function and method headers should be 1-2 lines of text. Dont document arguments
+- Follow the single responsibility principle
+- Functions and methods should never be more than 30 lines but they should be two or more lines
+- Classes should never be more than 100 lines
+- Carefully follow the DRY principle
+- Before trying to fix a bug re-read claude.md and re-read the source file that has the bug

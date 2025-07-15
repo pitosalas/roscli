@@ -1,152 +1,101 @@
 #!/usr/bin/env python3
-import cmd, sys
-import os
+import cmd
 import rclpy
-from rclpy.node import Node
-import platform    # For getting the operating system name
-import subprocess  # For executing a shell command
-import teleopapi  # Assuming teleopapi is a custom module for robot control
 
-class Handlers(Node):
-    """
-    ROS2 node for handling robot operations and network diagnostics.
-    Provides ping functionality and node management.
-    """
-    def __init__(self):
-        """
-        Initialize the handlers node.
-        Sets up ROS2 node with rc_node name.
-        """
-        super().__init__('rc_node')
-        self.node_initialized = False
-        self.cmd_vel = None
-        
+from . import teleopapi    # Assuming teleopapi is a custom module for robot control
 
-    def ping_host(self, host):
-        """
-        Returns True if host (str) responds to a ping request.
-        Remember that a host may not respond to a ping (ICMP) request even if the host name is valid.
-        """
-        # Option for the number of packets as a function of
-        param = '-n' if platform.system().lower()=='windows' else '-c'
-
-        # Building the command. Ex: "ping -c 1 -t 1 -q google.com"
-        command = ['ping', param, '1', host]
-        self.ping = subprocess.call(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
-        return self.ping
-     
 class RosConsole(cmd.Cmd):
-    """
-    Interactive command-line interface for robot control.
-    Provides movement commands and ROS2 integration.
-    """
+    """Interactive command-line interface for robot control."""
     intro = 'Welcome to the ROS2 Console shell.   Type help or ? to list commands.'
     prompt = "> "
 
     def __init__(self):
-        """
-        Initialize the console interface.
-        Sets up ROS2 and creates handlers instance.
-        """
+        """Initialize console interface and ROS2 handlers."""
         super().__init__()
         rclpy.init()
-        self.h = Handlers()
-    
-    def __del__(self):
-        """
-        Clean up ROS2 resources on object destruction.
-        Safely destroys node and shuts down ROS2.
-        """
-        try:
-            self.h.destroy_node()
-            rclpy.shutdown()
-        except:
-            pass
+        self.speed = 0.7
+        self.rotation = 0.4
+        self.toap = teleopapi.TeleopApi(self.speed, self.rotation)  # Initialize teleoperation API
 
-    def default(self, line):
-        """
-        Handle unrecognized commands by finding partial matches.
-        Allows abbreviated command names for convenience.
-        """
-        cmd, arg, line = self.parseline(line)
-        func = [getattr(self, n) for n in self.get_names() if n.startswith('do_' + cmd)]
-        if func: # maybe check if exactly one or more elements, and tell the user
-            func[0](arg)
-    
     def do_quit(self, arg):
-        """
-        Exit the console application.
-        Properly cleans up ROS2 resources before exiting.
-        """
-        'Exit from rc'
-        print('Thank you for using rc')
-        try:
-            self.h.destroy_node()
-            rclpy.shutdown()
-        except:
-            pass
+        """Exit console and clean up ROS2 resources. Syntax: quit"""
+        self.toap.get_logger().info('Thank you for using rc')
         return True
 
-    def do_move(self, arg):
-        """
-        Move robot forward at specified speed for given duration.
-        Default: 0.1 m/s for 1 second if no arguments provided.
-        """
-        'Move robot forward <speed> <seconds>'
-        args = self.parse(arg)
-        if len(args) == 0:
-            args = (0.1, 1)
-        elif len(args) != 2:
-            print("Error: <speed> <seconds> required")
-            return False
-        toap = teleopapi.TeleopApi(True)
-        toap.move(*args)
+    def do_move_dist(self, arg):
+        """Move robot forward specified distance. Syntax: move_dist <distance_meters>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <distance> required")) is None:
+            return
+        self.toap.move_dist(args[0])
 
-    def do_turn(self, arg):
-        """
-        Turn robot at specified angular speed for given duration.
-        Default: 0.4 rad/s for 1 second if no arguments provided.
-        """
-        'Turn robot forward <speed> <seconds>'
-        args = self.parse(arg)
-        if len(args) == 0:
-            args = (0.4, 1)
-        elif len(args) != 2:
-            print("Error: <speed> <seconds> required")
-            return False
-        toap = teleopapi.TeleopApi(True)
-        toap.turn(*args)
+    def do_turn_rad(self, arg):
+        """Turn robot at angular speed for duration. Syntax: turn_rad <speed_rad_per_sec> <seconds>"""
+        if (args := self.parse_and_check_params(arg, 2, "Error: <speed> <seconds> required")) is None:
+            return
+        self.toap.turn_rad(*args)
 
     def do_stop(self, arg):
-        """
-        Stop the robot immediately.
-        Sends zero velocity command to halt all movement.
-        """
-        'Stop the robot immediately!'
-        toap = teleopapi.TeleopApi(False)
-        toap.turn(0.0,1) # move at 0.1 m/s for 1 second.
+        """Stop robot immediately with zero velocity. Syntax: stop"""
+        self.toap.stop()
 
-    def parse(self, arg):
-        """
-        Parse command arguments into floating point numbers.
-        Converts space-separated string into tuple of floats.
-        """
-        'Convert a series of zero or more numbers to an argument tuple'
-        return tuple(map(float, arg.split()))
+    def do_speed(self, arg):
+        """Set robot forward speed. Syntax: speed <meters_per_second>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <speed> required")) is None:
+            return
+        self.speed = args[0]
+
+    def do_rotation(self, arg):
+        """Set robot angular speed. Syntax: rotation <radians_per_second>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <rotation> required")) is None:
+            return
+        self.rotation = args[0]
+
+    def do_turn_deg(self, arg):
+        """Turn robot by degrees. Syntax: turn_deg <degrees>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <degrees> required")) is None:
+            return
+        radians = args[0] * 3.14159 / 180.0
+        seconds = abs(radians) / self.rotation
+        self.toap.turn_rad(radians, seconds)
+
+    def do_move_time(self, arg):
+        """Move robot for specified time. Syntax: move_time <seconds>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <seconds> required")) is None:
+            return
+        self.toap.cmd_vel_helper(self.speed, 0, args[0])
+
+    def do_turn_time(self, arg):
+        """Turn robot for specified time. Syntax: turn_time <seconds>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <seconds> required")) is None:
+            return
+        self.toap.turn_rad(self.rotation, args[0])
+
+    def do_info(self, arg):
+        """Display robot status information. Syntax: info"""
+        print(f"Current speed: {self.speed} m/s")
+        print(f"Current rotation: {self.rotation} rad/s")
+        print(f"ROS2 node: {self.toap.get_name()}")
+        print(f"Status: Active")
+
+    def parse_and_check_params(self, arg, number_of_params, error_message):
+        """Parse arguments and check parameter count, return as list."""
+        try:
+            args = tuple(map(float, arg.split()))
+        except ValueError as e:
+            self.toap.get_logger().error(f"Invalid number format: {e}")
+            return None
+        if len(args) != number_of_params:
+            self.toap.get_logger().error(error_message)
+            return None
+        return list(args)
 
 def main():
-    """
-    Main entry point for the ROS console application.
-    Handles keyboard interrupts and ensures proper cleanup.
-    """
+    """Main entry point with keyboard interrupt handling."""
     rc = RosConsole()
     try:
         rc.cmdloop()
     except KeyboardInterrupt:
         print("\nExiting...")
-    finally:
-        try:
-            rc.h.destroy_node()
-            rclpy.shutdown()
-        except:
-            pass
+
+if __name__ == '__main__':
+    main()
