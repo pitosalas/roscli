@@ -25,10 +25,23 @@ class RosConsole(cmd.Cmd):
         self.toap.move_dist(args[0])
 
     def do_turn_rad(self, arg):
-        """Turn robot at angular speed for duration. Syntax: turn_rad <speed_rad_per_sec> <seconds>"""
-        if (args := self.parse_and_check_params(arg, 2, "Error: <speed> <seconds> required")) is None:
+        """Turn robot by angle in radians. Syntax: turn_rad <radians>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <radians> required")) is None:
             return
-        self.toap.turn_rad(*args)
+        self.toap.turn_amount(args[0])
+
+    def do_calibrate_square(self, arg):
+        """Draw a square to use in calibration. Syntax: calibrate_square <distance_meters>"""
+        if (args := self.parse_and_check_params(arg, 1, "Error: <distance> required")) is None:
+            return
+        self.toap.move_dist(args[0])
+        self.toap.turn_amount(1.57079)  # Turn 90 degrees
+        self.toap.move_dist(args[0])
+        self.toap.turn_amount(1.57079)  # Turn 90 degrees
+        self.toap.move_dist(args[0])
+        self.toap.turn_amount(1.57079)  # Turn 90 degrees
+        self.toap.move_dist(args[0])    
+
 
     def do_stop(self, arg):
         """Stop robot immediately with zero velocity. Syntax: stop"""
@@ -38,40 +51,40 @@ class RosConsole(cmd.Cmd):
         """Set robot forward speed. Syntax: linear <meters_per_second>"""
         if (args := self.parse_and_check_params(arg, 1, "Error: <linear> required")) is None:
             return
-        self.toap.linear = args[0]
+        self.toap.set_linear_speed(args[0])
 
     def do_angular(self, arg):
         """Set robot angular speed. Syntax: angular <radians_per_second>"""
         if (args := self.parse_and_check_params(arg, 1, "Error: <angular> required")) is None:
             return
-        self.toap.angular = args[0]
+        self.toap.set_angular_speed(args[0])
 
     def do_turn_deg(self, arg):
         """Turn robot by degrees. Syntax: turn_deg <degrees>"""
         if (args := self.parse_and_check_params(arg, 1, "Error: <degrees> required")) is None:
             return
         radians = args[0] * 3.14159 / 180.0
-        seconds = float(abs(radians) / self.toap.angular)
-        self.toap.turn_rad(radians, seconds)
+        self.toap.turn_amount(radians)
 
     def do_move_time(self, arg):
         """Move robot for specified time. Syntax: move_time <seconds>"""
         if (args := self.parse_and_check_params(arg, 1, "Error: <seconds> required")) is None:
             return
-        self.toap.cmd_vel_helper(self.toap.linear, 0.0, args[0])
+        self.toap.move_time(args[0])
 
     def do_turn_time(self, arg):
         """Turn robot for specified time. Syntax: turn_time <seconds>"""
         if (args := self.parse_and_check_params(arg, 1, "Error: <seconds> required")) is None:
             return
-        self.toap.turn_rad(self.toap.angular, args[0])
+        self.toap.turn_time(args[0])
 
     def do_info(self, arg):
         """Display robot status information. Syntax: info"""
-        print(f"Current default speed: {self.toap.linear} m/s")
-        print(f"Current default rotation: {self.toap.angular} rad/s")
-        print(f"Linear limits: [{self.toap.linear_min}, {self.toap.linear_max}] m/s")
-        print(f"Angular limits: [{self.toap.angular_min}, {self.toap.angular_max}] rad/s")
+        status = self.toap.get_status()
+        print(f"Current default speed: {status['linear']} m/s")
+        print(f"Current default rotation: {status['angular']} rad/s")
+        print(f"Linear limits: {status['linear_limits']} m/s")
+        print(f"Angular limits: {status['angular_limits']} rad/s")
         print(f"ROS2 node: {self.toap.get_name()}")
         print("Status: Active")
 

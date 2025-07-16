@@ -4,6 +4,21 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 import time
 
+"""
+TeleopApi Entry Points:
+- move_dist(distance) - Move forward by specified distance in meters
+- move_time(seconds) - Move forward at default speed for specified duration
+- turn_amount(angle) - Turn in place by specified angle in radians
+- turn_time(seconds) - Turn at default speed for specified duration
+- stop() - Stop robot immediately with zero velocity
+- set_linear_speed(speed) - Set default linear velocity with safety check
+- set_angular_speed(speed) - Set default angular velocity with safety check
+- get_status() - Return current speed settings and limits as dictionary
+- move_continuous(linear, angular) - Send velocity commands without auto-stop
+- check_limits(linear, angular) - Validate speeds are within safety bounds
+- cmd_vel_helper(linear, angular, seconds) - Send velocity commands for duration
+"""
+
 class TeleopApi(Node):
     """
     ROS2 teleoperation API for robot movement control.
@@ -61,13 +76,48 @@ class TeleopApi(Node):
         """Stop the robot immediately."""
         self.cmd_vel_helper(0.0, 0.0, 0.0)
 
-    def turn_rad(self, speed:float, seconds:float):
+    def turn_time(self, seconds:float):
         """Turn robot at a specified speed for a given duration."""
-        if not self.check_limits(0, speed):
-            return
-        self.cmd_vel_helper(0.0, speed, seconds)
+        self.cmd_vel_helper(0.0, self.angular, seconds)
+        
+    def turn_amount(self, angle: float):
+        """Turn robot in place by a given angle in radians."""
+        seconds = abs(angle) / self.angular
+        angular_speed = self.angular if angle >= 0 else -self.angular
+        self.cmd_vel_helper(0.0, angular_speed, seconds)
+        
+    def move_time(self, seconds):
+        """Move robot forward at default speed for specified duration."""
+        self.cmd_vel_helper(self.linear, 0.0, seconds)
 
-    
+    def set_linear_speed(self, speed):
+        """Set default linear velocity with safety check."""
+        if self.check_limits(speed, self.angular):
+            self.linear = speed
+
+    def set_angular_speed(self, speed):
+        """Set default angular velocity with safety check."""
+        if self.check_limits(self.linear, speed):
+            self.angular = speed
+
+    def get_status(self):
+        """Return current speed settings and limits."""
+        return {
+            'linear': self.linear,
+            'angular': self.angular,
+            'linear_limits': [self.linear_min, self.linear_max],
+            'angular_limits': [self.angular_min, self.angular_max]
+        }
+
+    def move_continuous(self, linear, angular):
+        """Send continuous velocity commands without auto-stop."""
+        if not self.check_limits(linear, angular):
+            return
+        twist = Twist()
+        twist.linear.x = linear
+        twist.angular.z = angular
+        self.cmd_vel_pub.publish(twist)
+
     def destroy_node(self):
         """Clean up resources and shutdown node."""
         self.get_logger().info("Shutting down TeleopApi node")
