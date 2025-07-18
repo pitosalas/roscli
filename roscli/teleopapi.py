@@ -36,11 +36,11 @@ class TeleopApi(Node):
         super().__init__('teleop_api')
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 1)
         self.get_logger().info("TeleopApi node initialized")
-        self.linear_min = -1.5
-        self.linear_max = 1.5
+        self.linear_min = -0.5
+        self.linear_max = 0.5
         self.angular_min = -1.0
         self.angular_max = 1.0
-        self.linear:float  = 0.5
+        self.linear:float  = 0.3
         self.angular:float  = 0.4
     
     # Core Movement Methods
