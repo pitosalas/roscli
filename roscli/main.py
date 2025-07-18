@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import cmd
-
-from . import teleopapi    # Assuming teleopapi is a custom module for robot control
+from roscli import teleopapi
+import time
 
 class RosConsole(cmd.Cmd):
     """Interactive command-line interface for robot control."""
@@ -15,7 +15,7 @@ class RosConsole(cmd.Cmd):
 
     def do_exit(self, arg):
         """Exit console and clean up ROS2 resources. Syntax: quit"""
-        self.toap.get_logger().info('Thank you for using rc')
+        self.toap.get_logger().info('Thank you for using roscli')
         return True
 
     def do_move_dist(self, arg):
@@ -36,10 +36,13 @@ class RosConsole(cmd.Cmd):
             return
         self.toap.move_dist(args[0])
         self.toap.turn_amount(1.57079)  # Turn 90 degrees
+        time.sleep(1)
         self.toap.move_dist(args[0])
         self.toap.turn_amount(1.57079)  # Turn 90 degrees
+        time.sleep(1)
         self.toap.move_dist(args[0])
         self.toap.turn_amount(1.57079)  # Turn 90 degrees
+        time.sleep(1)
         self.toap.move_dist(args[0])    
 
 

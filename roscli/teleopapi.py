@@ -41,7 +41,7 @@ class TeleopApi(Node):
         self.angular_min = -1.0
         self.angular_max = 1.0
         self.linear:float  = 0.5
-        self.angular:float  = 0.0
+        self.angular:float  = 0.4
     
     # Core Movement Methods
     def move_dist(self, distance):
