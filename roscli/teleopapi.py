@@ -118,7 +118,6 @@ class TeleopApi(Node):
         twist = Twist()
         twist.linear.x = linear
         twist.angular.z = angular
-        print(f"cmd_vel_helper: {twist}")
         
         start_time = time.time()
         rate_hz = 10
