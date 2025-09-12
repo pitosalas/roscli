@@ -1,4 +1,4 @@
-#!/usr/bin/env pythongit sta3
+#!/usr/bin/env python3
 
 """
 Monitor the state of the robot. 
@@ -6,21 +6,23 @@ Note that this node requires that the sound_play node is also running.
 rosrun sound_pay sound_play
 """
 
-import rospy
+import rclpy
+from rclpy.node import Node
 from sound_play.libsoundplay import SoundClient
 from rpsexamples.msg import Mon
 from nav_msgs.msg import Odometry
 
-class Monitor:
+class Monitor(Node):
     """Eventually will be the Robot's brain stem keeping track that things
     are going ok. For now it just reports state changes"""
     def __init__(self):
+        super().__init__('monitor')
         self.soundhandle = SoundClient()
         self.voice = 'voice_kal_diphone'
         self.volume = 1.0
         self.pose = None
-        self.sub_monitor = rospy.Subscriber('monitor', Mon, self.monitor_callback)
-        self.sub_odom = rospy.Subscriber('odom', Odometry, self.odom_callback)
+        self.sub_monitor = self.create_subscription(Mon, 'monitor', self.monitor_callback, 1)
+        self.sub_odom = self.create_subscription(Odometry, 'odom', self.odom_callback, 1)
 
     def monitor_callback(self, msg):
         """Callback when requests are made to monitor"""
@@ -35,14 +37,21 @@ class Monitor:
         print(f"Status monitor: {message}")
         self.soundhandle.say(message, self.voice, self.volume)
 
-if __name__ == '__main__':
-    rospy.init_node("monitor")
+def main():
+    rclpy.init()
     mon = Monitor()
-    rate = rospy.Rate(1/60.0)
-    while not rospy.is_shutdown():
-        mon.say("Robot Status OK")
-        rate.sleep()
-    mon.say("Control Program exiting")
+    try:
+        import time
+        while rclpy.ok():
+            mon.say("Robot Status OK")
+            time.sleep(60.0)  # 1 minute sleep
+    finally:
+        mon.say("Control Program exiting")
+        mon.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
     
 
 

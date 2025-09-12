@@ -5,7 +5,8 @@ import sys
 import select
 import tty
 import termios
-import rospy
+import rclpy
+from rclpy.node import Node
 from std_msgs.msg import String
 from rpsexamples.msg import Robogym
 
@@ -13,9 +14,10 @@ from rpsexamples.msg import Robogym
 # very simple parsing of the commands. robogym.py subscribes to these messages and executes them. Neither needs to run `onboard`.
 # loog at robogym.py for more documentation on the commands
 
-class RobogymCmds:
+class RobogymCmds(Node):
     def __init__(self):
-        self.cli_pub = rospy.Publisher("cli", Robogym, queue_size=1)
+        super().__init__('robogym_cmds')
+        self.cli_pub = self.create_publisher(Robogym, "cli", 1)
 
     def do_cmd(self, command):
         print(command)
@@ -46,29 +48,33 @@ class RobogymCmds:
     def command_loop(self):
         exitnow = False
         if len(sys.argv) == 1:
-            while not rospy.is_shutdown() and not exitnow:
+            while rclpy.ok() and not exitnow:
                 command = input(">>> ")
                 command = command.split()
                 exitnow = self.do_cmd(command)
 
     def command_once(self):
-        try:
-            rate = rospy.Rate(10)  # 10hz
-            while not rospy.is_shutdown():
-                connections = self.cli_pub.get_num_connections()
-                print(f"Connections: {connections}")
-                if connections > 0:
-                    self.do_cmd(sys.argv[1:])
-                    break
-                rate.sleep()
-        except rospy.ROSInterruptException as e:
-            raise e
+        import time
+        while rclpy.ok():
+            connections = self.cli_pub.get_subscription_count()
+            print(f"Connections: {connections}")
+            if connections > 0:
+                self.do_cmd(sys.argv[1:])
+                break
+            time.sleep(0.1)
 
+
+def main():
+    rclpy.init()
+    r = RobogymCmds()
+    try:
+        if len(sys.argv) == 1:
+            r.command_loop()
+        else:
+            r.command_once()
+    finally:
+        r.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == "__main__":
-    rospy.init_node("rg")
-    r = RobogymCmds()
-    if len(sys.argv) == 1:
-        r.command_loop()
-    else:
-        r.command_once()
+    main()

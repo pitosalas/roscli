@@ -2,7 +2,8 @@
 """This module puts up a command prompt and gives the user control by commands of the robot"""
 
 from rgparser2 import Parser
-import rospy
+import rclpy
+from rclpy.node import Node
 from bru_utils import (
     turn_to_target,
     wait_for_simulator,
@@ -13,21 +14,22 @@ from bru_utils import (
 
 from geometry_msgs.msg import Twist, Pose2D
 from nav_msgs.msg import Odometry
-from tf.transformations import euler_from_quaternion
+from scipy.spatial.transform import Rotation
 from rpsexamples.msg import Mon
 from math import degrees
 
 
-class RoboGym:
+class RoboGym(Node):
     """Contains all the actions for the rg command set."""
 
     def __init__(self):
-        rospy.init_node("robogym")
+        super().__init__('robogym')
+        rclpy.init()
         wait_for_simulator()
         self.init_vars()
-        self.cmd_vel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
-        self.odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_cb)
-        self.mon_pub = rospy.Publisher("/monitor", Mon, queue_size=1)
+        self.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 1)
+        self.odom_sub = self.create_subscription(Odometry, "/odom", self.odom_cb, 1)
+        self.mon_pub = self.create_publisher(Mon, "/monitor", 1)
         self.target = Pose2D(1, 1, 0)
         self.odom_pose = Pose2D(0, 0, 0)
         self.required_turn_angle = 0
@@ -38,7 +40,8 @@ class RoboGym:
     def odom_cb(self, msg: str):
         """ROS callback for Odometry Message"""
         oreuler = msg.pose.pose.orientation
-        _, _, yaw = euler_from_quaternion([oreuler.x, oreuler.y, oreuler.z, oreuler.w])
+        r = Rotation.from_quat([oreuler.x, oreuler.y, oreuler.z, oreuler.w])
+        _, _, yaw = r.as_euler('xyz', degrees=False)
         self.odom_pose = Pose2D(msg.pose.pose.position.x, msg.pose.pose.position.y, yaw)
         self.required_turn_angle = turn_to_target(
             self.odom_pose.theta,
@@ -121,7 +124,7 @@ class RoboGym:
         """Execute the "stop" command, to Stop the robot by setting the cmd_vel to all zeros"""
         self.twist = Twist()
         self.distance = 0
-        self.mon_pub.publish(Mon("state", "Stop immediately"))
+        self.mon_pub.publish(Mon(argument="Stop immediately"))
         self.safe_publish_cmd_vel()
         print("Immediate stop")
 
@@ -130,11 +133,11 @@ class RoboGym:
         print(args)
         self.twist = Twist()
         self.target = Pose2D(args[0], args[1], 0)
-        rate = rospy.Rate(10)
+        import time
         self.mon_pub.publish(
-            Mon("state", f"Goto odometry x,y {self.target.x} {self.target.y}")
+            Mon(argument=f"Goto odometry x,y {self.target.x} {self.target.y}")
         )
-        while not rospy.is_shutdown():
+        while rclpy.ok():
             self.distance = calc_distance(self.odom_pose, self.target)
             abs_required_turn = abs(normalize_angle(self.required_turn_angle))
             if self.distance > rg.symbol_table["arrival_delta"]:
@@ -156,7 +159,7 @@ class RoboGym:
                 self.twist.linear.x = self.twist.angular.z = 0
                 self.safe_publish_cmd_vel()
                 return
-            rate.sleep()
+            time.sleep(0.1)  # 10Hz
 
     def is_valid_route(self, var):
         """type check that this is a valid route"""
@@ -172,14 +175,20 @@ class RoboGym:
             self.goto(point)
 
 
-# Main function.
-if __name__ == "__main__":
-    # Initialize the node and name it.
+def main():
     rg = RoboGym()
     cp = Parser(rg.symbol_table, rg.command_table())
-    while True:
-        try:
-            cp.cli()
-        except KeyboardInterrupt:
-            rg.stop([])
-            print("Stopping Robot. Type Exit to leave")
+    try:
+        while rclpy.ok():
+            try:
+                cp.cli()
+            except KeyboardInterrupt:
+                rg.stop([])
+                print("Stopping Robot. Type Exit to leave")
+                break
+    finally:
+        rg.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == "__main__":
+    main()
