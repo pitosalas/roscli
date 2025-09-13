@@ -1,68 +1,167 @@
-# roscli Integration Status
+# ROSCLI Project Status
+
+## Project Overview
+ROSCLI is a ROS2-based robot control CLI interface that provides teleoperation capabilities for robots. The project is written in Python and follows ROS2 standards with colcon build system.
+
+## Current Architecture
+
+### Main Components
+
+**1. Main CLI Interface (`main.py`)**
+- `RosConsole` class extending `cmd.Cmd` for interactive shell
+- Commands for robot movement, turning, speed control, and navigation
+- Integration point for all robot control functionality
+
+**2. TeleopApi (`teleopapi.py`)**
+- Core ROS2 node for robot control
+- Publishers: `/cmd_vel` (Twist), `cli` (Robogym)  
+- Subscriber: `/odom` (Odometry) for navigation
+- Safety limits: linear [-0.5, 0.5] m/s, angular [-1.0, 1.0] rad/s
+- Navigation capabilities with point-to-point movement
+
+**3. Command Interface (`command.py`)**
+- **NEW**: Typer-based command structure with hierarchical subcommands
+- Comprehensive documentation of all available commands
+- Foundation for multi-interface architecture (CLI, TUI, Topic-based)
+
+**4. Message Definitions**
+- `Robogym.msg`: Custom message for robogym protocol commands
+- Fields: command (string), lin, ang, rate, lim (all float64)
+
+## Available Commands
+
+### Current CLI Commands (single-word legacy)
+```
+move_dist <distance>     - Move forward by distance in meters
+turn_rad <radians>       - Turn by radians  
+turn_deg <degrees>       - Turn by degrees
+move_time <seconds>      - Move for specified time
+turn_time <seconds>      - Turn for specified time
+stop                     - Stop immediately
+Stop                     - Send zero cmd_vel directly
+linear <speed>           - Set linear speed
+angular <speed>          - Set angular speed  
+info                     - Display status
+route "x1,y1 x2,y2"      - Navigate through waypoints
+calibrate_square <size>  - Draw calibration square
+```
+
+### Robogym Protocol Commands
+```
+move [lin] [ang] [rate] [lim]     - Move with parameters
+time [lin] [ang] [rate] [lim]     - Time-based movement
+count [lin] [ang] [rate] [lim]    - Count-based movement  
+distance [lin] [ang] [rate] [lim] - Distance-based movement
+reset                             - Reset robot state
+```
+
+### NEW: Typer Subcommand Structure (Not Yet Integrated)
+```
+Movement Commands:
+move distance <meters>    - Move forward by distance
+move time <seconds>       - Move forward by time
+
+Turning Commands:  
+turn degrees <degrees>    - Turn by degrees
+turn radians <radians>    - Turn by radians
+turn time <seconds>       - Turn by time
+
+Settings Commands:
+set linear <speed>        - Set linear speed
+set angular <speed>       - Set angular speed
+
+Status Commands:
+get status               - Display robot status
+get info                 - Display robot status (alias)
+
+Navigation Commands:
+nav route "x1,y1 x2,y2"  - Navigate waypoints
+
+System Commands:
+system stop              - Stop robot
+system Stop              - Direct zero velocity
+system reset             - Reset state
+system calibrate [size]  - Draw calibration square
+```
+
+## Key Features
+
+**Navigation System:**
+- Odometry-based point-to-point navigation
+- Proportional controller for position and orientation
+- Configurable arrival tolerance (default 0.1m)
+- Sequential waypoint following
+
+**Safety Features:**
+- Velocity limiting on all commands
+- Parameter validation and error handling
+- Graceful shutdown and cleanup
+
+**ROS2 Integration:**
+- Standard geometry_msgs/Twist for velocity control
+- nav_msgs/Odometry for position feedback
+- Custom Robogym message for protocol compatibility
+
+## Development Guidelines (CLAUDE.md)
+- Python 3, ROS2 only
+- Functions/methods max 50 lines
+- Files max 300 lines  
+- Classes in separate files named after the class
+- Prefer async/await over threading
+- Avoid nested if/else > 1 deep
+- Multi-step implementation maintaining working program after each step
+
+## Planned Architecture Refactoring
+
+**Goal:** Support three command interfaces:
+1. **CLI Interface** (current) - Command-line interaction
+2. **TUI Interface** (planned) - Visual terminal UI using Textual
+3. **Topic Interface** (planned) - ROS2 topic subscription for external control
+
+**Refactoring Todo List:**
+1. ✅ Create base Command class in command.py  
+2. ✅ Restructure commands to use two-word format with Typer subcommands
+3. 🔄 Create CommandRegistry class in command_registry.py
+4. 🔄 Create first command class (MoveDistCommand) to test pattern
+5. 🔄 Integrate CommandRegistry into main.py alongside existing do_* methods
+6. 🔄 Create remaining command classes one by one
+7. 🔄 Replace do_* methods with registry calls incrementally
+8. 🔄 Extract CLI interface logic to cli_interface.py
+9. 🔄 Update main.py to use new CLI interface class
+10. 🔄 Test all commands work identically to before
+
+**Strategy:** Each step maintains a working program for testing and validation.
+
+## Recent Changes (Latest Commit: 3d1cdb8)
+- Added comprehensive Typer-based command structure
+- Implemented route navigation with odometry control
+- Added Stop command for direct velocity control
+- Integrated robogym protocol into main CLI
+- Added odometry subscriber to TeleopApi
+- Updated package.xml/setup.py for ROS2 messages
+- Created command.py with hierarchical organization
 
 ## Current Status
-**IN PROGRESS** - Integrating rg.py commands into main.py roscli interface
+- **Working:** All legacy CLI commands functional
+- **New:** Typer command structure created but not integrated
+- **Next:** Complete refactoring to support multiple interfaces while maintaining backward compatibility
 
-## What Has Been Done
-✅ **Completed Tasks:**
-1. Analyzed rg.py commands and current main.py structure
-2. Added rg.py commands to main.py RosConsole class (move, time, count, distance, reset)
-3. Updated teleopapi to support Robogym message publishing
-4. Created Robogym.msg in roscli package with proper structure
-5. Updated package.xml and setup.py for message generation
-6. Fixed import statements in teleopapi.py and rg.py to use `roscli.msg` instead of `rpsexamples.msg`
+## File Structure
+```
+roscli/
+├── main.py           - Main CLI interface
+├── teleopapi.py      - Core ROS2 teleop functionality  
+├── command.py        - NEW: Typer command structure
+├── rg.py            - Robogym keyboard interface
+├── rgmonitor.py     - Robot monitoring with odometry
+├── rgserver.py      - Robogym protocol server
+└── rgserver2.py     - Alternative server implementation
 
-## Current Todo
-🔄 **In Progress:**
-- Test the integrated commands (build was interrupted)
+msg/
+└── Robogym.msg      - Custom message definition
 
-## Integration Changes Made
+archive/
+└── rgtests.py       - Moved test files
+```
 
-### 1. main.py (roscli/main.py:95-141)
-Added new command methods:
-- `do_move()` - Move robot with parameters [lin] [ang] [rate] [lim]
-- `do_time()` - Time-based robot movement 
-- `do_count()` - Count-based robot movement
-- `do_distance()` - Distance-based robot movement  
-- `do_reset()` - Reset robot state
-- `parse_robogym_params()` - Helper to parse command parameters
-
-### 2. teleopapi.py (roscli/teleopapi.py)
-- Added import: `from roscli.msg import Robogym`
-- Added publisher: `self.robogym_pub = self.create_publisher(Robogym, 'cli', 1)`
-- Added method: `send_robogym_command()` - Publishes Robogym messages
-
-### 3. Package Structure
-- Created: `msg/Robogym.msg` with fields: command, lin, ang, rate, lim
-- Updated: `package.xml` - Added rosidl dependencies for message generation
-- Updated: `setup.py` - Added message file inclusion in data_files
-- Updated: `rg.py` - Fixed import to use `roscli.msg.Robogym`
-
-## Known Issues/Bugs
-🐛 **Potential Issues:**
-1. **Build Status Unknown** - colcon build was interrupted, need to verify successful compilation
-2. **Message Dependencies** - Need to confirm rosidl_default_generators is available in build environment
-3. **Runtime Testing** - Commands added but not yet tested in live ROS2 environment
-4. **Import Path** - May need to source workspace after build for new message imports
-
-## Architecture
-- **main.py**: cmd.Cmd interface with both original teleop commands AND new rg.py-style commands
-- **teleopapi.py**: Unified API supporting both Twist (cmd_vel) and Robogym (cli) message publishing
-- **rg.py**: Original standalone command interface (still functional)
-
-## Next Steps
-1. Complete colcon build and fix any compilation errors
-2. Test new commands in ROS2 environment
-3. Verify Robogym message publishing works correctly
-4. Test integration between new commands and existing teleop functionality
-
-## Command Mapping
-**Original rg.py → New main.py integration:**
-- `move [lin] [ang] [rate] [lim]` → `move [lin] [ang] [rate] [lim]`
-- `time [lin] [ang] [rate] [lim]` → `time [lin] [ang] [rate] [lim]`
-- `count [lin] [ang] [rate] [lim]` → `count [lin] [ang] [rate] [lim]`
-- `distance [lin] [ang] [rate] [lim]` → `distance [lin] [ang] [rate] [lim]`
-- `reset` → `reset`
-
-**Existing main.py commands remain unchanged:**
-- move_dist, turn_rad, stop, linear, angular, etc.
+The project is in active development with a clear roadmap toward a flexible, multi-interface robot control system while maintaining all current functionality.
