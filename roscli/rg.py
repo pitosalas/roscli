@@ -8,7 +8,7 @@ import termios
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from rpsexamples.msg import Robogym
+from roscli.msg import Robogym
 
 # robogym.py and rg.py work together. rg.py accepts commands from the keyboard and generates Robogym messages which are very
 # very simple parsing of the commands. robogym.py subscribes to these messages and executes them. Neither needs to run `onboard`.
